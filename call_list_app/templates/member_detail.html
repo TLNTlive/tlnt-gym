@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+{% block title %}{{ member.member_name }} - Transition Board{% endblock %}
+{% block content %}
+<div class="mb-4">
+    <a href="{{ url_for('queue') }}" class="text-sm text-gray-500 hover:text-gray-700">← Back to Queue</a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <!-- LEFT: Member Info + Family -->
+    <div class="lg:col-span-2 space-y-4">
+        <!-- Header -->
+        <div class="bg-white shadow rounded-lg p-5">
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div>
+                    <h1 class="text-xl font-bold text-gray-900">{{ member.member_name }}</h1>
+                    <div class="flex flex-wrap gap-2 mt-1.5">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if member.membership_type == 'Elite' %}bg-indigo-100 text-indigo-700
+                            {% elif member.membership_type == 'Basic' %}bg-gray-100 text-gray-700
+                            {% elif member.membership_type == 'MMA Student' %}bg-orange-100 text-orange-700
+                            {% elif member.membership_type == 'Family Add On' %}bg-purple-100 text-purple-700
+                            {% else %}bg-gray-100 text-gray-600{% endif %}">
+                            {{ member.membership_type or 'Unknown' }}
+                        </span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold
+                            {% if member.price >= 75 %}bg-green-100 text-green-800
+                            {% elif member.price >= 25 %}bg-blue-100 text-blue-800
+                            {% else %}bg-gray-100 text-gray-600{% endif %}">
+                            ${{ "%.0f"|format(member.price) if member.price else '0' }}/mo
+                        </span>
+                        {% if member.conversion_priority == 'High' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">HIGH PRIORITY</span>
+                        {% elif member.conversion_priority == 'Medium' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">MED PRIORITY</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold
+                        {% if member.workflow_status == 'Critical Action' %}bg-red-100 text-red-800
+                        {% elif member.workflow_status == 'Pending Outreach' %}bg-gray-200 text-gray-700
+                        {% elif member.workflow_status == 'Attempted' %}bg-yellow-100 text-yellow-800
+                        {% elif member.workflow_status == 'Contacted' %}bg-blue-100 text-blue-800
+                        {% elif member.workflow_status == 'Completed' %}bg-green-100 text-green-800
+                        {% elif member.workflow_status == 'Not Interested' %}bg-orange-100 text-orange-700
+                        {% elif member.workflow_status == 'Do Not Migrate' %}bg-red-100 text-red-700
+                        {% else %}bg-gray-100 text-gray-600{% endif %}">
+                        {% if member.workflow_status == 'Critical Action' %}🔴 {% endif %}
+                        {{ member.workflow_status }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Escalation banner -->
+            {% if member.escalated %}
+            <div class="mt-3 p-3 rounded-lg {% if member.escalation_tag == 'Mike' %}bg-yellow-100 border border-yellow-300{% else %}bg-orange-50 border border-orange-200{% endif %}">
+                <div class="flex items-center gap-2">
+                    {% if member.escalation_tag == 'Mike' %}
+                    <span class="text-lg">🔶</span>
+                    <span class="font-bold text-yellow-900">MIKE ESCALATION</span>
+                    {% else %}
+                    <span class="text-lg">⚡</span>
+                    <span class="font-bold text-orange-800">Escalated: {{ member.escalation_tag }}</span>
+                    {% endif %}
+                    {% if member.escalated_to %}
+                    <span class="text-sm text-gray-600">→ {{ member.escalated_to }}</span>
+                    {% endif %}
+                </div>
+                <p class="text-sm mt-1 text-gray-700">{{ member.escalation_note }}</p>
+                <p class="text-xs text-gray-400 mt-1">By {{ member.escalated_by }} at {{ member.escalated_at[:16] if member.escalated_at else '' }}</p>
+                <form method="POST" action="{{ url_for('de_escalate', member_id=member.id) }}" class="mt-2">
+                    <button type="submit" class="text-xs px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50">Remove Escalation</button>
+                </form>
+            </div>
+            {% endif %}
+
+            <!-- Family group banner -->
+            {% if member.family_group_name %}
+            <div class="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-lg">👨‍👩‍👧</span>
+                    <span class="font-semibold text-purple-900">{{ member.family_group_name }}</span>
+                    <span class="text-xs text-purple-600">({{ family_members|length + 1 }} members)</span>
+                </div>
+                {% if family_members %}
+                <div class="space-y-1">
+                    {% for fm in family_members %}
+                    <div class="flex items-center justify-between text-sm bg-white rounded px-3 py-1.5">
+                        <div class="flex items-center gap-2">
+                            <a href="{{ url_for('member_detail', member_id=fm.id) }}" class="text-blue-700 hover:underline font-medium">{{ fm.member_name }}</a>
+                            <span class="text-xs text-gray-400">{{ fm.membership_type }}</span>
+                            <span class="text-xs font-semibold {% if fm.price and fm.price >= 25 %}text-green-700{% else %}text-gray-500{% endif %}">${{ "%.0f"|format(fm.price) if fm.price else '0' }}</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-xs">
+                            <span class="{% if fm.gymdesk_status == 'Active' %}text-green-600{% elif fm.gymdesk_status == 'Pending' %}text-yellow-600{% else %}text-gray-500{% endif %}">GD: {{ fm.gymdesk_status }}</span>
+                            <span class="{% if fm.abc_status == 'Off' %}text-green-600{% elif fm.abc_status == 'Active' %}text-red-600{% else %}text-yellow-600{% endif %}">ABC: {{ fm.abc_status }}</span>
+                            {% if fm.last_contact_summary %}
+                            <span class="text-gray-400 max-w-[150px] truncate" title="{{ fm.last_contact_summary }}">{{ fm.last_contact_summary }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="mt-2 flex gap-2">
+                    <form method="POST" action="{{ url_for('set_family_primary', member_id=member.id) }}">
+                        <button type="submit" class="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200">Mark as Primary</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('unlink_family', member_id=member.id) }}">
+                        <button type="submit" class="text-xs px-2 py-1 bg-white border border-gray-300 text-gray-600 rounded hover:bg-gray-50">Unlink from Family</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Contact Info -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                <div>
+                    <div class="text-xs text-gray-500 uppercase">Phone</div>
+                    <a href="tel:{{ member.best_phone }}" class="text-sm font-medium text-blue-700 hover:underline">{{ member.best_phone or '—' }}</a>
+                </div>
+                <div>
+                    <div class="text-xs text-gray-500 uppercase">Email</div>
+                    <a href="mailto:{{ member.email_address }}" class="text-sm font-medium text-blue-700 hover:underline break-all">{{ member.email_address or '—' }}</a>
+                </div>
+                <div>
+                    <div class="text-xs text-gray-500 uppercase">Payment</div>
+                    <div class="text-sm text-gray-800">{{ member.payment_category or '—' }} · {{ member.payment_mode or '' }}</div>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-3">
+                <div>
+                    <div class="text-xs text-gray-500 uppercase">Start Date</div>
+                    <div class="text-sm text-gray-800">{{ member.start_date or '—' }}</div>
+                </div>
+                <div>
+                    <div class="text-xs text-gray-500 uppercase">Last Billed</div>
+                    <div class="text-sm text-gray-800">{{ member.last_billed_date or '—' }}</div>
+                </div>
+                <div>
+                    <div class="text-xs text-gray-500 uppercase">Next Billing</div>
+                    <div class="text-sm font-semibold text-gray-900">{{ member.next_billing_date or member.next_due_date or '—' }}</div>
+                </div>
+                <div>
+                    <div class="text-xs text-gray-500 uppercase">Attempts</div>
+                    <div class="text-sm font-bold text-gray-900">{{ member.attempt_count }}</div>
+                </div>
+            </div>
+
+            <!-- Transition Status -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 p-3 bg-gray-50 rounded-lg">
+                <div>
+                    <div class="text-xs text-gray-500 uppercase">ABC Status</div>
+                    <span class="text-sm font-semibold {% if member.abc_status == 'Off' %}text-green-700{% elif member.abc_status == 'Active' %}text-red-600{% else %}text-yellow-600{% endif %}">
+                        {{ member.abc_status }}
+                    </span>
+                </div>
+                <div>
+                    <div class="text-xs text-gray-500 uppercase">Gymdesk Status</div>
+                    <span class="text-sm font-semibold {% if member.gymdesk_status == 'Active' %}text-green-700{% elif member.gymdesk_status == 'Pending' %}text-yellow-600{% else %}text-gray-600{% endif %}">
+                        {{ member.gymdesk_status }}
+                    </span>
+                </div>
+                <div>
+                    <div class="text-xs text-gray-500 uppercase">Gymdesk Checked</div>
+                    <span class="text-sm font-semibold {% if member.gymdesk_checked %}text-green-700{% else %}text-red-500{% endif %}">
+                        {{ 'Yes ✓' if member.gymdesk_checked else 'No ✗' }}
+                    </span>
+                </div>
+                <div>
+                    <div class="text-xs text-gray-500 uppercase">Gymdesk Outcome</div>
+                    <span class="text-sm font-semibold text-gray-700">{{ member.gymdesk_outcome }}</span>
+                </div>
+            </div>
+
+            <!-- Last contact -->
+            {% if member.last_contact_summary %}
+            <div class="mt-3 p-3 bg-blue-50 rounded-lg">
+                <div class="text-xs text-gray-500 uppercase mb-1">Last Contact</div>
+                <div class="text-sm text-gray-800">{{ member.last_contact_summary }}</div>
+                <div class="text-xs text-gray-400 mt-1">{{ member.last_contact_date[:16] if member.last_contact_date else '' }}</div>
+            </div>
+            {% endif %}
+
+            <!-- Notes -->
+            {% if member.notes %}
+            <div class="mt-3 p-3 bg-gray-50 rounded-lg">
+                <div class="text-xs text-gray-500 uppercase mb-1">Notes</div>
+                <pre class="text-sm text-gray-700 whitespace-pre-wrap font-sans">{{ member.notes }}</pre>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Case History -->
+        <div class="bg-white shadow rounded-lg p-5">
+            <h3 class="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Case History</h3>
+            {% if history %}
+            <div class="space-y-2 max-h-96 overflow-y-auto">
+                {% for h in history %}
+                <div class="flex items-start gap-3 text-sm border-l-2 {% if 'Contact' in h.action_type %}border-blue-300{% elif 'Critical' in h.action_type or 'ABC' in h.action_type %}border-red-300{% elif 'Escalat' in h.action_type %}border-yellow-300{% elif 'Gymdesk' in h.action_type %}border-green-300{% else %}border-gray-200{% endif %} pl-3 py-1">
+                    <div class="flex-1">
+                        <span class="font-medium text-gray-900">{{ h.action_type }}</span>
+                        {% if h.comment %}
+                        <span class="text-gray-600">— {{ h.comment }}</span>
+                        {% endif %}
+                        <div class="text-xs text-gray-400 mt-0.5">{{ h.user_name }} · {{ h.timestamp[:16] }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-400">No history yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- RIGHT: Actions panel -->
+    <div class="space-y-4">
+        <!-- Gymdesk Check -->
+        {% if not member.gymdesk_checked %}
+        <div class="bg-yellow-50 border-2 border-yellow-400 shadow rounded-lg p-4">
+            <h3 class="text-sm font-bold text-yellow-900 mb-2">⚠️ CHECK GYMDESK FIRST</h3>
+            <p class="text-xs text-yellow-800 mb-3">Before contacting or transitioning, verify this person's status in Gymdesk.</p>
+            <form method="POST" action="{{ url_for('gymdesk_check', member_id=member.id) }}">
+                <button type="submit" class="w-full px-4 py-2 bg-yellow-500 text-white text-sm font-bold rounded-lg hover:bg-yellow-600 transition">
+                    ✓ Gymdesk Checked
+                </button>
+            </form>
+        </div>
+        {% else %}
+        <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+            <span class="text-sm text-green-700 font-medium">✓ Gymdesk Checked</span>
+        </div>
+        {% endif %}
+
+        <!-- Contact Actions -->
+        <div class="bg-white shadow rounded-lg p-4" x-data="{ contactType: '', showModal: false }">
+            <h3 class="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Log Contact</h3>
+            {% if member.family_group_name %}
+            <div class="mb-3 p-2 bg-purple-50 rounded text-xs text-purple-800">
+                👨‍👩‍👧 This member is part of <strong>{{ member.family_group_name }}</strong> with {{ family_members|length }} linked records.
+            </div>
+            {% endif %}
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <button @click="contactType='Call'; showModal=true" class="px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition">📞 Call</button>
+                <button @click="contactType='Text'; showModal=true" class="px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition">💬 Text</button>
+                <button @click="contactType='Email'; showModal=true" class="px-3 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition">📧 Email</button>
+                <button @click="contactType='In Person'; showModal=true" class="px-3 py-2 bg-gray-700 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition">🤝 In Person</button>
+            </div>
+            <!-- Contact Modal -->
+            <div x-show="showModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @keydown.escape.window="showModal=false">
+                <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4" @click.away="showModal=false">
+                    <h3 class="text-lg font-bold text-gray-900 mb-1">Log <span x-text="contactType"></span></h3>
+                    <p class="text-sm text-gray-500 mb-4">{{ member.member_name }} · {{ member.best_phone }}</p>
+                    <form method="POST" action="{{ url_for('log_contact', member_id=member.id) }}">
+                        <input type="hidden" name="contact_type" :value="contactType">
+                        <textarea name="comment" rows="3" placeholder="Optional comment... (e.g. didn't answer, asked to call back Friday)"
+                                  class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500 mb-3"></textarea>
+                        <div class="flex gap-2">
+                            <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">
+                                Save Contact
+                            </button>
+                            <button type="button" @click="showModal=false" class="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gymdesk Transition -->
+        <div class="bg-white shadow rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Gymdesk Transition</h3>
+            {% if not member.gymdesk_checked %}
+            <p class="text-xs text-red-600 mb-2">⚠️ Must check Gymdesk first</p>
+            {% endif %}
+            <div class="space-y-2">
+                <form method="POST" action="{{ url_for('set_gymdesk', member_id=member.id) }}">
+                    <input type="hidden" name="gymdesk_status" value="Active">
+                    <button type="submit" {% if not member.gymdesk_checked %}disabled{% endif %}
+                            class="w-full px-3 py-2 text-sm font-medium rounded-lg border transition
+                            {% if not member.gymdesk_checked %}bg-gray-100 text-gray-400 cursor-not-allowed{% else %}bg-green-50 text-green-800 border-green-300 hover:bg-green-100{% endif %}">
+                        Set Gymdesk Active
+                    </button>
+                </form>
+                <form method="POST" action="{{ url_for('set_gymdesk', member_id=member.id) }}">
+                    <input type="hidden" name="gymdesk_status" value="Inactive">
+                    <button type="submit" {% if not member.gymdesk_checked %}disabled{% endif %}
+                            class="w-full px-3 py-2 text-sm font-medium rounded-lg border transition
+                            {% if not member.gymdesk_checked %}bg-gray-100 text-gray-400 cursor-not-allowed{% else %}bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100{% endif %}">
+                        Set Gymdesk Inactive
+                    </button>
+                </form>
+                <form method="POST" action="{{ url_for('set_gymdesk', member_id=member.id) }}">
+                    <input type="hidden" name="gymdesk_status" value="Already Active in Gymdesk">
+                    <button type="submit" {% if not member.gymdesk_checked %}disabled{% endif %}
+                            class="w-full px-3 py-2 text-sm font-medium rounded-lg border transition
+                            {% if not member.gymdesk_checked %}bg-gray-100 text-gray-400 cursor-not-allowed{% else %}bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100{% endif %}">
+                        Already Active in Gymdesk
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ABC Status -->
+        <div class="bg-white shadow rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">ABC Status</h3>
+            <div class="space-y-2">
+                <form method="POST" action="{{ url_for('set_abc', member_id=member.id) }}">
+                    <input type="hidden" name="abc_status" value="Off">
+                    <button type="submit" class="w-full px-3 py-2 text-sm font-bold rounded-lg bg-green-600 text-white hover:bg-green-700 transition">
+                        ✓ Confirm ABC Off
+                    </button>
+                </form>
+                <form method="POST" action="{{ url_for('set_abc', member_id=member.id) }}">
+                    <input type="hidden" name="abc_status" value="To Do">
+                    <button type="submit" class="w-full px-3 py-2 text-sm font-medium rounded-lg bg-yellow-50 text-yellow-800 border border-yellow-300 hover:bg-yellow-100 transition">
+                        Add ABC to To Do
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Disposition -->
+        <div class="bg-white shadow rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Disposition</h3>
+            <div class="space-y-2">
+                <form method="POST" action="{{ url_for('mark_not_interested', member_id=member.id) }}">
+                    <button type="submit" class="w-full px-3 py-2 text-sm font-medium rounded-lg bg-orange-50 text-orange-700 border border-orange-300 hover:bg-orange-100 transition">
+                        Mark Not Interested
+                    </button>
+                </form>
+                <form method="POST" action="{{ url_for('mark_do_not_migrate', member_id=member.id) }}">
+                    <button type="submit" class="w-full px-3 py-2 text-sm font-medium rounded-lg bg-red-50 text-red-700 border border-red-300 hover:bg-red-100 transition">
+                        Mark Do Not Migrate
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Workflow Status Override -->
+        <div class="bg-white shadow rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Workflow Status</h3>
+            <form method="POST" action="{{ url_for('set_workflow', member_id=member.id) }}" class="flex gap-2">
+                <select name="workflow_status" title="Set workflow status" class="flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-sm">
+                    {% for s in workflow_statuses %}
+                    <option value="{{ s }}" {% if member.workflow_status == s %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="px-3 py-1.5 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-700">Set</button>
+            </form>
+        </div>
+
+        <!-- Escalation -->
+        <div class="bg-white shadow rounded-lg p-4" x-data="{ showEsc: false }">
+            <h3 class="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Escalation</h3>
+            {% if not member.escalated %}
+            <button @click="showEsc=!showEsc" class="w-full px-3 py-2 text-sm font-medium rounded-lg bg-yellow-50 text-yellow-800 border border-yellow-300 hover:bg-yellow-100 transition">
+                ⚡ Escalate This Case
+            </button>
+            <div x-show="showEsc" x-cloak class="mt-3">
+                <form method="POST" action="{{ url_for('escalate', member_id=member.id) }}" class="space-y-2">
+                    <select name="escalation_tag" required title="Escalation tag" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                        <option value="">Select tag...</option>
+                        {% for t in escalation_tags %}
+                        <option value="{{ t }}">{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                    <select name="escalated_to" title="Escalate to team member" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                        <option value="">Escalate to (optional)...</option>
+                        {% for u in team_users %}
+                        <option value="{{ u }}">{{ u }}</option>
+                        {% endfor %}
+                    </select>
+                    <textarea name="escalation_note" required rows="2" placeholder="Escalation reason (required)..."
+                              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"></textarea>
+                    <button type="submit" class="w-full px-3 py-2 bg-yellow-500 text-white text-sm font-bold rounded-lg hover:bg-yellow-600">Escalate</button>
+                </form>
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-600">Currently escalated: <strong>{{ member.escalation_tag }}</strong></p>
+            {% endif %}
+        </div>
+
+        <!-- Add Note -->
+        <div class="bg-white shadow rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wide">Add Note</h3>
+            <form method="POST" action="{{ url_for('add_note', member_id=member.id) }}" class="space-y-2">
+                <textarea name="note" rows="2" placeholder="Internal note..."
+                          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"></textarea>
+                <button type="submit" class="w-full px-3 py-2 bg-gray-200 text-gray-800 text-sm font-medium rounded-lg hover:bg-gray-300 transition">
+                    Add Note
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

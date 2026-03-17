@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Import Seed Data - Transition Board{% endblock %}
+{% block content %}
+<div class="flex min-h-[50vh] items-center justify-center">
+    <div class="w-full max-w-md">
+        <div class="bg-white shadow-lg rounded-xl p-8">
+            <h2 class="text-xl font-bold text-gray-900 mb-2">Import Seed Data</h2>
+            <p class="text-sm text-gray-500 mb-4">Import members from the ABC Ignite spreadsheet export.</p>
+
+            {% if count > 0 %}
+            <div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p class="text-sm text-yellow-800">
+                    <strong>⚠️ {{ count }} members</strong> already exist in the database.
+                    Importing again will add duplicates.
+                </p>
+            </div>
+            {% endif %}
+
+            <div class="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
+                <p class="font-medium mb-1">This will import from:</p>
+                <code class="text-xs bg-gray-200 px-2 py-1 rounded">spreadsheet_data.json</code>
+                <p class="mt-2">The "Active Import" sheet (981 rows) will be loaded with default workflow statuses and auto-grouped into families.</p>
+            </div>
+
+            <form method="POST">
+                <button type="submit" class="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 transition"
+                        onclick="this.disabled=true; this.innerText='Importing...'; this.form.submit();">
+                    Import Seed Data
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

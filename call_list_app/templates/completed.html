@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Completed - Transition Board{% endblock %}
+{% block content %}
+<div class="mb-4">
+    <h1 class="text-xl font-bold text-green-700">✅ Completed</h1>
+    <p class="text-sm text-gray-500">{{ members|length }} members fully transitioned</p>
+</div>
+
+{% if not members %}
+<div class="bg-white shadow rounded-lg p-12 text-center text-gray-400">No completed cases yet.</div>
+{% else %}
+<div class="bg-white shadow rounded-lg overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
+        <thead class="bg-green-50">
+            <tr>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Member</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Price</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Gymdesk Outcome</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">ABC</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Completed</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for m in members %}
+            <tr class="hover:bg-gray-50">
+                <td class="px-3 py-2">
+                    <a href="{{ url_for('member_detail', member_id=m.id) }}" class="font-medium text-blue-700 hover:underline">{{ m.member_name }}</a>
+                    {% if m.family_group_name %}
+                    <span class="ml-1 text-[10px] text-purple-600">👨‍👩‍👧 {{ m.family_group_name }}</span>
+                    {% endif %}
+                </td>
+                <td class="px-3 py-2 text-gray-600">{{ m.membership_type }}</td>
+                <td class="px-3 py-2 text-right font-semibold">${{ "%.0f"|format(m.price) if m.price else '0' }}</td>
+                <td class="px-3 py-2">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                        {% if m.gymdesk_outcome == 'Active' %}bg-green-100 text-green-700
+                        {% elif m.gymdesk_outcome == 'Inactive' %}bg-gray-100 text-gray-600
+                        {% elif m.gymdesk_outcome == 'Already Active in Gymdesk' %}bg-blue-100 text-blue-700
+                        {% elif m.gymdesk_outcome == 'Not Interested' %}bg-orange-100 text-orange-700
+                        {% else %}bg-gray-100 text-gray-600{% endif %}">
+                        {{ m.gymdesk_outcome }}
+                    </span>
+                </td>
+                <td class="px-3 py-2">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Off ✓</span>
+                </td>
+                <td class="px-3 py-2 text-xs text-gray-400">{{ m.updated_at[:10] if m.updated_at else '' }}</td>
+                <td class="px-3 py-2">
+                    <a href="{{ url_for('member_detail', member_id=m.id) }}" class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

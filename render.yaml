@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: tlnt-gym-transition
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --chdir call_list_app app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+    envVars:
+      - key: DATABASE_PATH
+        value: /data/transition.db
+    disk:
+      name: transition-db
+      mountPath: /data
+      sizeGB: 1

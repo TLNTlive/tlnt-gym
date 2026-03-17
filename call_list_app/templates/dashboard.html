@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Transition Board{% endblock %}
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+    <p class="text-sm text-gray-500 mt-1">ABC → Gymdesk Transition Overview</p>
+</div>
+
+<!-- Top-level stats -->
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
+    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
+        <div class="text-2xl font-bold text-gray-900">{{ counts.get('Total Open', 0) }}</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide">Total Open</div>
+    </div>
+    <a href="{{ url_for('queue', status='Pending Outreach') }}" class="bg-white rounded-lg shadow p-4 border-l-4 border-gray-400 hover:bg-gray-50 transition">
+        <div class="text-2xl font-bold text-gray-900">{{ counts.get('Pending Outreach', 0) }}</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide">Pending Outreach</div>
+    </a>
+    <a href="{{ url_for('queue', status='Attempted') }}" class="bg-white rounded-lg shadow p-4 border-l-4 border-yellow-400 hover:bg-gray-50 transition">
+        <div class="text-2xl font-bold text-yellow-700">{{ counts.get('Attempted', 0) }}</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide">Attempted</div>
+    </a>
+    <a href="{{ url_for('queue', status='Contacted') }}" class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-400 hover:bg-gray-50 transition">
+        <div class="text-2xl font-bold text-blue-700">{{ counts.get('Contacted', 0) }}</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide">Contacted</div>
+    </a>
+    <a href="{{ url_for('critical_view') }}" class="bg-red-50 rounded-lg shadow p-4 border-l-4 border-red-500 hover:bg-red-100 transition">
+        <div class="text-2xl font-bold text-red-700">{{ counts.get('Critical Action', 0) }}</div>
+        <div class="text-xs text-red-600 uppercase tracking-wide font-semibold">Critical Action</div>
+    </a>
+    <a href="{{ url_for('completed_view') }}" class="bg-green-50 rounded-lg shadow p-4 border-l-4 border-green-500 hover:bg-green-100 transition">
+        <div class="text-2xl font-bold text-green-700">{{ counts.get('Completed', 0) }}</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide">Completed</div>
+    </a>
+    <a href="{{ url_for('not_interested_view') }}" class="bg-white rounded-lg shadow p-4 border-l-4 border-orange-400 hover:bg-gray-50 transition">
+        <div class="text-2xl font-bold text-orange-600">{{ counts.get('Not Interested Total', 0) + counts.get('Do Not Migrate Total', 0) }}</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide">Not Interested / DNM</div>
+    </a>
+    <a href="{{ url_for('escalated_view') }}" class="bg-yellow-50 rounded-lg shadow p-4 border-l-4 border-yellow-500 hover:bg-yellow-100 transition">
+        <div class="text-2xl font-bold text-yellow-700">{{ counts.get('Escalated', 0) }}</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide">Escalated</div>
+    </a>
+</div>
+
+<!-- Secondary stats -->
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-xl font-bold text-red-600">{{ counts.get('MIKE Escalations', 0) }}</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide">🔶 MIKE Escalations</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-xl font-bold text-green-600">{{ counts.get('Gymdesk Active Complete', 0) }}</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide">Gymdesk Active ✓</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-xl font-bold text-gray-600">{{ counts.get('Gymdesk Inactive Complete', 0) }}</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide">Gymdesk Inactive ✓</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-xl font-bold text-orange-600">{{ counts.get('ABC Still Active', 0) }}</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide">ABC Still Active</div>
+    </div>
+</div>
+
+<!-- Urgency -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-xl font-bold text-red-600">{{ counts.get('Due Next 7 Days', 0) }}</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide">Due Next 7 Days</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-xl font-bold text-yellow-600">{{ counts.get('Due Next 30 Days', 0) }}</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide">Due Next 30 Days</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-xl font-bold text-green-600">{{ counts.get('Completed Today', 0) }}</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide">Completed Today</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-xl font-bold text-red-600">{{ counts.get('Critical Actions Outstanding', 0) }}</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide">Critical Outstanding</div>
+    </div>
+</div>
+
+<!-- Quick actions -->
+<div class="flex flex-wrap gap-3">
+    <a href="{{ url_for('queue') }}" class="inline-flex items-center px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition">
+        → Start Working Queue
+    </a>
+    <a href="{{ url_for('seed_page') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition">
+        Import Seed Data
+    </a>
+    <a href="{{ url_for('export_data') }}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition">
+        Export JSON
+    </a>
+</div>
+{% endblock %}

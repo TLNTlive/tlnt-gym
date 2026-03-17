@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Escalated - Transition Board{% endblock %}
+{% block content %}
+<div class="mb-4">
+    <h1 class="text-xl font-bold text-gray-900">Escalated Cases</h1>
+    <p class="text-sm text-gray-500">{{ members|length }} escalated cases · MIKE cases shown first</p>
+</div>
+
+{% if not members %}
+<div class="bg-white shadow rounded-lg p-12 text-center text-gray-400">No escalated cases.</div>
+{% else %}
+<div class="space-y-2">
+    {% for m in members %}
+    <div class="bg-white shadow rounded-lg p-4 border-l-4
+        {% if m.escalation_tag == 'Mike' %}border-yellow-400 bg-yellow-50
+        {% elif m.escalated_to == user %}border-blue-400
+        {% else %}border-orange-300{% endif %}">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div class="flex items-center gap-3">
+                {% if m.escalation_tag == 'Mike' %}
+                <span class="inline-flex items-center px-2 py-1 rounded text-xs font-bold bg-yellow-200 text-yellow-900">🔶 MIKE</span>
+                {% else %}
+                <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-700">⚡ {{ m.escalation_tag }}</span>
+                {% endif %}
+                <a href="{{ url_for('member_detail', member_id=m.id) }}" class="font-semibold text-blue-700 hover:underline">{{ m.member_name }}</a>
+                <span class="text-sm text-gray-500">{{ m.membership_type }} · ${{ "%.0f"|format(m.price) if m.price else '0' }}</span>
+                {% if m.family_group_name %}
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700">👨‍👩‍👧 {{ m.family_count }}</span>
+                {% endif %}
+            </div>
+            <div class="flex items-center gap-3 text-sm">
+                <span class="text-gray-500">{{ m.best_phone }}</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                    {% if m.workflow_status == 'Critical Action' %}bg-red-100 text-red-800
+                    {% elif m.workflow_status == 'Pending Outreach' %}bg-gray-100 text-gray-600
+                    {% elif m.workflow_status == 'Attempted' %}bg-yellow-100 text-yellow-800
+                    {% elif m.workflow_status == 'Contacted' %}bg-blue-100 text-blue-800
+                    {% else %}bg-gray-100 text-gray-600{% endif %}">
+                    {{ m.workflow_status }}
+                </span>
+                <a href="{{ url_for('member_detail', member_id=m.id) }}" class="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Open</a>
+            </div>
+        </div>
+        <div class="mt-2 text-sm text-gray-600">
+            <span class="font-medium">Note:</span> {{ m.escalation_note }}
+        </div>
+        <div class="mt-1 text-xs text-gray-400">
+            By {{ m.escalated_by }}
+            {% if m.escalated_to %} → {{ m.escalated_to }}{% endif %}
+            · {{ m.escalated_at[:16] if m.escalated_at else '' }}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Critical Action - Transition Board{% endblock %}
+{% block content %}
+<div class="mb-4">
+    <h1 class="text-xl font-bold text-red-700">🔴 Critical Action</h1>
+    <p class="text-sm text-gray-500">{{ members|length }} cases need ABC turned off or another must-do follow-up</p>
+</div>
+
+{% if not members %}
+<div class="bg-white shadow rounded-lg p-12 text-center text-gray-400">No critical action items. 🎉</div>
+{% else %}
+<div class="bg-white shadow rounded-lg overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
+        <thead class="bg-red-50">
+            <tr>
+                <th class="px-3 py-2 text-left text-xs font-medium text-red-700 uppercase">Member</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-red-700 uppercase">Phone</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-red-700 uppercase">Type</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-red-700 uppercase">Price</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-red-700 uppercase">Gymdesk</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-red-700 uppercase">ABC</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-red-700 uppercase">Last Contact</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-red-700 uppercase">Action</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for m in members %}
+            <tr class="hover:bg-red-50 transition">
+                <td class="px-3 py-2">
+                    <a href="{{ url_for('member_detail', member_id=m.id) }}" class="font-medium text-blue-700 hover:underline">{{ m.member_name }}</a>
+                    {% if m.family_group_name %}
+                    <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700">👨‍👩‍👧 {{ m.family_count }}</span>
+                    {% endif %}
+                </td>
+                <td class="px-3 py-2 text-gray-700">{{ m.best_phone }}</td>
+                <td class="px-3 py-2">{{ m.membership_type }}</td>
+                <td class="px-3 py-2 text-right font-semibold">${{ "%.0f"|format(m.price) if m.price else '0' }}</td>
+                <td class="px-3 py-2">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                        {% if m.gymdesk_status == 'Active' %}bg-green-100 text-green-700
+                        {% elif m.gymdesk_status == 'Inactive' %}bg-gray-100 text-gray-600
+                        {% else %}bg-blue-100 text-blue-700{% endif %}">
+                        {{ m.gymdesk_outcome }}
+                    </span>
+                </td>
+                <td class="px-3 py-2">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold
+                        {% if m.abc_status == 'Active' %}bg-red-100 text-red-700
+                        {% elif m.abc_status == 'To Do' %}bg-yellow-100 text-yellow-700
+                        {% else %}bg-green-100 text-green-700{% endif %}">
+                        {{ m.abc_status }}
+                    </span>
+                </td>
+                <td class="px-3 py-2 text-xs text-gray-600 max-w-[180px] truncate">{{ m.last_contact_summary or '—' }}</td>
+                <td class="px-3 py-2">
+                    <div class="flex gap-1">
+                        <form method="POST" action="{{ url_for('set_abc', member_id=m.id) }}">
+                            <input type="hidden" name="abc_status" value="Off">
+                            <button type="submit" class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 font-bold">ABC Off ✓</button>
+                        </form>
+                        <a href="{{ url_for('member_detail', member_id=m.id) }}" class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Open</a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Queue - Transition Board{% endblock %}
+{% block content %}
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
+    <div>
+        <h1 class="text-xl font-bold text-gray-900">Work Queue</h1>
+        <p class="text-sm text-gray-500">{{ members|length }} open cases</p>
+    </div>
+    <!-- Filters -->
+    <form method="GET" class="flex flex-wrap items-center gap-2">
+        <input type="text" name="search" value="{{ search }}" placeholder="Search name/phone/email..."
+               class="rounded-md border border-gray-300 px-3 py-1.5 text-sm w-48 focus:ring-blue-500 focus:border-blue-500">
+        <select name="status" title="Filter by status" class="rounded-md border border-gray-300 px-2 py-1.5 text-sm">
+            <option value="">All Statuses</option>
+            {% for s in workflow_statuses %}
+            {% if s != 'Completed' %}
+            <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s }}</option>
+            {% endif %}
+            {% endfor %}
+        </select>
+        <select name="priority" title="Filter by priority" class="rounded-md border border-gray-300 px-2 py-1.5 text-sm">
+            <option value="">All Priorities</option>
+            <option value="High" {% if priority_filter == 'High' %}selected{% endif %}>High</option>
+            <option value="Medium" {% if priority_filter == 'Medium' %}selected{% endif %}>Medium</option>
+            <option value="Low" {% if priority_filter == 'Low' %}selected{% endif %}>Low</option>
+        </select>
+        <button type="submit" class="px-3 py-1.5 bg-gray-900 text-white text-sm rounded-md hover:bg-gray-800">Filter</button>
+        {% if search or status_filter or priority_filter %}
+        <a href="{{ url_for('queue') }}" class="text-sm text-gray-500 hover:text-gray-700">Clear</a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Queue table -->
+<div class="bg-white shadow rounded-lg overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Member</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Price</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Next Bill</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Att</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Last Contact</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Badges</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for m in members %}
+                <tr class="hover:bg-gray-50 transition
+                    {% if m.workflow_status == 'Critical Action' %}bg-red-50{% endif %}
+                    {% if m.escalated and m.escalation_tag == 'Mike' %}bg-yellow-50{% endif %}"
+                    id="row-{{ m.id }}">
+                    <!-- Member Name -->
+                    <td class="px-3 py-2 whitespace-nowrap">
+                        <a href="{{ url_for('member_detail', member_id=m.id) }}" class="font-medium text-blue-700 hover:text-blue-900 hover:underline">
+                            {{ m.member_name }}
+                        </a>
+                        {% if m.family_group_name %}
+                        <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700" title="Family: {{ m.family_group_name }}">
+                            👨‍👩‍👧 {{ m.family_count }}
+                        </span>
+                        {% endif %}
+                    </td>
+                    <!-- Phone -->
+                    <td class="px-3 py-2 whitespace-nowrap text-gray-700">
+                        <a href="tel:{{ m.best_phone }}" class="hover:text-blue-600">{{ m.best_phone }}</a>
+                    </td>
+                    <!-- Membership Type -->
+                    <td class="px-3 py-2 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if m.membership_type == 'Elite' %}bg-indigo-100 text-indigo-700
+                            {% elif m.membership_type == 'Basic' %}bg-gray-100 text-gray-700
+                            {% elif m.membership_type == 'MMA Student' %}bg-orange-100 text-orange-700
+                            {% elif m.membership_type == 'Family Add On' %}bg-purple-100 text-purple-700
+                            {% else %}bg-gray-100 text-gray-600{% endif %}">
+                            {{ m.membership_type or '—' }}
+                        </span>
+                    </td>
+                    <!-- Price -->
+                    <td class="px-3 py-2 whitespace-nowrap text-right font-semibold
+                        {% if m.price >= 75 %}text-green-700{% elif m.price >= 25 %}text-gray-900{% else %}text-gray-500{% endif %}">
+                        ${{ "%.0f"|format(m.price) if m.price else '0' }}
+                    </td>
+                    <!-- Next Billing -->
+                    {% set bdate = m.next_billing_date or m.next_due_date or '' %}
+                    {% set bday = bdate[8:10]|int if bdate|length >= 10 else 0 %}
+                    {% set days_until = (bday - today_day + 32) % 32 if bday else 99 %}
+                    <td class="px-3 py-2 whitespace-nowrap text-xs">
+                        {% if bday %}
+                            {% if days_until == 0 %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold bg-red-600 text-white">🔴 BILLS TODAY</span>
+                            {% elif days_until == 1 %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold bg-orange-500 text-white">⚠️ TOMORROW · {{ bdate[:10] }}</span>
+                            {% elif days_until <= 3 %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded font-semibold bg-yellow-100 text-yellow-800">{{ days_until }}d · {{ bdate[:10] }}</span>
+                            {% elif days_until <= 7 %}
+                            <span class="text-yellow-700 font-medium">{{ days_until }}d · {{ bdate[:10] }}</span>
+                            {% else %}
+                            <span class="text-gray-500">{{ bdate[:10] }}</span>
+                            {% endif %}
+                        {% else %}
+                        <span class="text-gray-400">—</span>
+                        {% endif %}
+                    </td>
+                    <!-- Workflow Status -->
+                    <td class="px-3 py-2 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if m.workflow_status == 'Critical Action' %}bg-red-100 text-red-800
+                            {% elif m.workflow_status == 'Pending Outreach' %}bg-gray-100 text-gray-600
+                            {% elif m.workflow_status == 'Attempted' %}bg-yellow-100 text-yellow-800
+                            {% elif m.workflow_status == 'Contacted' %}bg-blue-100 text-blue-800
+                            {% elif m.workflow_status == 'Not Interested' %}bg-orange-100 text-orange-700
+                            {% elif m.workflow_status == 'Do Not Migrate' %}bg-red-100 text-red-700
+                            {% else %}bg-gray-100 text-gray-600{% endif %}">
+                            {% if m.workflow_status == 'Critical Action' %}🔴 {% endif %}
+                            {{ m.workflow_status }}
+                        </span>
+                    </td>
+                    <!-- Attempt Count -->
+                    <td class="px-3 py-2 text-center">
+                        <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold
+                            {% if m.attempt_count == 0 %}bg-gray-100 text-gray-400
+                            {% elif m.attempt_count <= 2 %}bg-yellow-100 text-yellow-700
+                            {% else %}bg-orange-100 text-orange-700{% endif %}">
+                            {{ m.attempt_count }}
+                        </span>
+                    </td>
+                    <!-- Last Contact -->
+                    <td class="px-3 py-2 max-w-[200px] truncate text-xs text-gray-600" title="{{ m.last_contact_summary }}">
+                        {{ m.last_contact_summary or '—' }}
+                    </td>
+                    <!-- Badges -->
+                    <td class="px-3 py-2 whitespace-nowrap space-x-1">
+                        {% if m.escalated %}
+                            {% if m.escalation_tag == 'Mike' %}
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-200 text-yellow-900">🔶 MIKE</span>
+                            {% else %}
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-100 text-orange-700">⚡ {{ m.escalation_tag }}</span>
+                            {% endif %}
+                        {% endif %}
+                        {% if m.gymdesk_checked %}
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">GD ✓</span>
+                        {% endif %}
+                        {% if m.conversion_priority == 'High' %}
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-600">HIGH</span>
+                        {% endif %}
+                    </td>
+                    <!-- Quick Actions -->
+                    <td class="px-3 py-2 whitespace-nowrap" x-data="{ open: false }">
+                        <div class="flex items-center gap-1">
+                            <a href="{{ url_for('member_detail', member_id=m.id) }}" class="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Open</a>
+                            <div class="relative">
+                                <button @click="open = !open" class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Quick ▾</button>
+                                <div x-show="open" @click.away="open = false" x-cloak
+                                     class="absolute right-0 mt-1 w-32 bg-white border rounded-lg shadow-lg z-50 py-1">
+                                    <form method="POST" action="{{ url_for('log_contact', member_id=m.id) }}" class="contents">
+                                        <input type="hidden" name="contact_type" value="Call">
+                                        <input type="hidden" name="comment" value="">
+                                        <button type="submit" class="block w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100">📞 Log Call</button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('log_contact', member_id=m.id) }}" class="contents">
+                                        <input type="hidden" name="contact_type" value="Text">
+                                        <input type="hidden" name="comment" value="">
+                                        <button type="submit" class="block w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100">💬 Log Text</button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('log_contact', member_id=m.id) }}" class="contents">
+                                        <input type="hidden" name="contact_type" value="Email">
+                                        <input type="hidden" name="comment" value="">
+                                        <button type="submit" class="block w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100">📧 Log Email</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not members %}
+                <tr>
+                    <td colspan="10" class="px-6 py-12 text-center text-gray-400">
+                        No cases found. {% if search or status_filter %}<a href="{{ url_for('queue') }}" class="text-blue-600 hover:underline">Clear filters</a>{% endif %}
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
