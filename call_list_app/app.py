@@ -256,15 +256,16 @@ def queue():
         params.extend([f'%{search}%'] * 3)
 
     today_day = date.today().day
+    tomorrow_day = (date.today() + timedelta(days=1)).day
     query += f""" ORDER BY
         CASE WHEN m.workflow_status = 'Critical Action' THEN 0 ELSE 1 END,
         CASE WHEN m.escalated = 1 AND m.escalation_tag = 'Mike' THEN 0
              WHEN m.escalated = 1 THEN 1 ELSE 2 END,
         CASE
             WHEN m.next_billing_date != '' AND LENGTH(m.next_billing_date) >= 10
-            THEN (CAST(SUBSTR(m.next_billing_date, 9, 2) AS INTEGER) - {today_day} + 32) % 32
+            THEN (CAST(SUBSTR(m.next_billing_date, 9, 2) AS INTEGER) - {tomorrow_day} + 32) % 32
             WHEN m.next_due_date != '' AND LENGTH(m.next_due_date) >= 10
-            THEN (CAST(SUBSTR(m.next_due_date, 9, 2) AS INTEGER) - {today_day} + 32) % 32
+            THEN (CAST(SUBSTR(m.next_due_date, 9, 2) AS INTEGER) - {tomorrow_day} + 32) % 32
             ELSE 99
         END ASC,
         m.price DESC,
@@ -280,7 +281,7 @@ def queue():
                            status_filter=status_filter, search=search,
                            priority_filter=priority_filter,
                            workflow_statuses=WORKFLOW_STATUSES,
-                           today=today, today_day=today_day)
+                           today=today, today_day=today_day, tomorrow_day=tomorrow_day)
 
 
 # --------------- Routes: Escalated ---------------

@@ -89,17 +89,17 @@
                     <!-- Next Billing -->
                     {% set bdate = m.next_billing_date or m.next_due_date or '' %}
                     {% set bday = bdate[8:10]|int if bdate|length >= 10 else 0 %}
-                    {% set days_until = (bday - today_day + 32) % 32 if bday else 99 %}
+                    {% set days_from_tomorrow = (bday - tomorrow_day + 32) % 32 if bday else 99 %}
                     <td class="px-3 py-2 whitespace-nowrap text-xs">
                         {% if bday %}
-                            {% if days_until == 0 %}
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold bg-red-600 text-white">🔴 BILLS TODAY</span>
-                            {% elif days_until == 1 %}
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold bg-orange-500 text-white">⚠️ TOMORROW · {{ bdate[:10] }}</span>
-                            {% elif days_until <= 3 %}
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded font-semibold bg-yellow-100 text-yellow-800">{{ days_until }}d · {{ bdate[:10] }}</span>
-                            {% elif days_until <= 7 %}
-                            <span class="text-yellow-700 font-medium">{{ days_until }}d · {{ bdate[:10] }}</span>
+                            {% if days_from_tomorrow == 0 %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold bg-red-600 text-white">🔴 TOMORROW</span>
+                            {% elif days_from_tomorrow == 31 %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded font-semibold bg-gray-400 text-white">TODAY · too late</span>
+                            {% elif days_from_tomorrow <= 3 %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded font-semibold bg-yellow-100 text-yellow-800">{{ days_from_tomorrow + 1 }}d · {{ bdate[:10] }}</span>
+                            {% elif days_from_tomorrow <= 6 %}
+                            <span class="text-yellow-700 font-medium">{{ days_from_tomorrow + 1 }}d · {{ bdate[:10] }}</span>
                             {% else %}
                             <span class="text-gray-500">{{ bdate[:10] }}</span>
                             {% endif %}

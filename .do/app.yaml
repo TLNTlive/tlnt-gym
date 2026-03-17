@@ -1,0 +1,19 @@
+name: tlnt-gym-transition
+region: nyc
+
+services:
+  - name: web
+    github:
+      repo: TLNTlive/tlnt-gym
+      branch: master
+      deploy_on_push: true
+    build_command: pip install -r requirements.txt
+    run_command: gunicorn --chdir call_list_app app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+    http_port: 8080
+    envs:
+      - key: DATABASE_PATH
+        value: /data/transition.db
+    routes:
+      - path: /
