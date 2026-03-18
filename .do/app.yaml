@@ -1,6 +1,12 @@
 name: tlnt-gym-transition
 region: nyc
 
+databases:
+  - name: db
+    engine: PG
+    version: "16"
+    production: false
+
 services:
   - name: web
     github:
@@ -13,7 +19,8 @@ services:
     instance_count: 1
     http_port: 8080
     envs:
-      - key: DATABASE_PATH
-        value: /data/transition.db
+      - key: DATABASE_URL
+        scope: RUN_AND_BUILD_TIME
+        value: ${db.DATABASE_URL}
     routes:
       - path: /

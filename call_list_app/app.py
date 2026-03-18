@@ -1,6 +1,7 @@
 import sqlite3
 import json
 import os
+import re as _re
 from datetime import datetime, date, timedelta
 from functools import wraps
 from flask import (Flask, render_template, request, redirect, url_for,
@@ -9,6 +10,11 @@ from flask import (Flask, render_template, request, redirect, url_for,
 app = Flask(__name__)
 app.secret_key = 'tlnt-gym-transition-2026'
 DATABASE = os.environ.get('DATABASE_PATH', os.path.join(os.path.dirname(__file__), 'transition.db'))
+_DB_URL = os.environ.get('DATABASE_URL', '')
+_USE_PG = _DB_URL.startswith('postgres')
+if _USE_PG:
+    import psycopg2
+    import psycopg2.extras
 
 TEAM_USERS = [
     'Lindsey Joyner',
@@ -32,12 +38,83 @@ GYMDESK_OUTCOMES = ['Pending', 'Active', 'Inactive', 'Already Active in Gymdesk'
 
 # --------------- Database helpers ---------------
 
+class _Row:
+    """Universal row: supports r[0], r['key'], r.key and tuple unpacking."""
+    __slots__ = ('_d', '_k')
+    def __init__(self, d, k):
+        object.__setattr__(self, '_d', d)
+        object.__setattr__(self, '_k', k)
+    def __getitem__(self, key):
+        if isinstance(key, int): return self._d[self._k[key]]
+        return self._d[key]
+    def __getattr__(self, key): return self._d[key]
+    def __iter__(self): return (self._d[c] for c in self._k)
+    def get(self, key, default=None): return self._d.get(key, default)
+    def keys(self): return self._k
+    def __contains__(self, key): return key in self._d
+
+
+class _Cur:
+    """Unified cursor wrapper."""
+    def __init__(self, raw, is_pg): self._r = raw; self._pg = is_pg
+    def _w(self, row):
+        if row is None: return None
+        if self._pg: return _Row(dict(row), list(row.keys()))
+        return _Row(dict(zip(row.keys(), tuple(row))), list(row.keys()))
+    def fetchone(self): return self._w(self._r.fetchone())
+    def fetchall(self): return [self._w(r) for r in self._r.fetchall()]
+    @property
+    def lastrowid(self): return self._r.lastrowid
+
+
+def _pg_sql(sql):
+    """Translate SQLite SQL syntax to PostgreSQL."""
+    sql = sql.replace('?', '%s')
+    sql = _re.sub(r'INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT', 'SERIAL PRIMARY KEY', sql, flags=_re.IGNORECASE)
+    sql = _re.sub(r'last_insert_rowid\(\)', 'lastval()', sql, flags=_re.IGNORECASE)
+    return sql
+
+
+class _DBConn:
+    """Unified connection wrapper for SQLite and PostgreSQL."""
+    def __init__(self, conn, is_pg): self._c = conn; self._pg = is_pg
+    def execute(self, sql, params=None):
+        if self._pg:
+            cur = self._c.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute(_pg_sql(sql), params if params is not None else ())
+        else:
+            cur = self._c.execute(sql, params or ())
+        return _Cur(cur, self._pg)
+    def executescript(self, sql):
+        if self._pg:
+            cur = self._c.cursor()
+            for stmt in _pg_sql(sql).split(';'):
+                stmt = stmt.strip()
+                if stmt:
+                    cur.execute(stmt)
+            self._c.commit()
+        else:
+            self._c.executescript(sql)
+    def commit(self): self._c.commit()
+    def close(self): self._c.close()
+
+
+def _raw_db():
+    """Direct connection for use outside Flask request context."""
+    if _USE_PG:
+        conn = psycopg2.connect(_DB_URL)
+        return _DBConn(conn, is_pg=True)
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return _DBConn(conn, is_pg=False)
+
+
 def get_db():
     if 'db' not in g:
-        g.db = sqlite3.connect(DATABASE)
-        g.db.row_factory = sqlite3.Row
-        g.db.execute("PRAGMA journal_mode=WAL")
-        g.db.execute("PRAGMA foreign_keys=ON")
+        g.db = _raw_db()
+        if not _USE_PG:
+            g.db.execute("PRAGMA journal_mode=WAL")
+            g.db.execute("PRAGMA foreign_keys=ON")
     return g.db
 
 
@@ -49,13 +126,19 @@ def close_db(exception):
 
 
 def init_db():
-    db = sqlite3.connect(DATABASE)
+    db = _raw_db()
     db.executescript(SCHEMA)
     db.commit()
     db.close()
 
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS family_groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_name TEXT NOT NULL,
+    created_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS members (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     member_number TEXT,
@@ -111,12 +194,6 @@ CREATE TABLE IF NOT EXISTS members (
     created_at TEXT,
     updated_at TEXT,
     FOREIGN KEY (family_group_id) REFERENCES family_groups(id)
-);
-
-CREATE TABLE IF NOT EXISTS family_groups (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    group_name TEXT NOT NULL,
-    created_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS case_history (
@@ -652,8 +729,7 @@ def seed_from_json():
     with open(json_path, 'r', encoding='utf-8') as f:
         all_data = json.load(f)
 
-    db = sqlite3.connect(DATABASE)
-    db.execute("PRAGMA foreign_keys=ON")
+    db = _raw_db()
     now = datetime.now().isoformat()
 
     rows = all_data.get('Sheet1', all_data.get('Active Import', {})).get('rows', [])
@@ -817,14 +893,14 @@ def _startup():
     """Initialize DB, run migrations, and auto-seed. Called at module import so
     it runs under both `python app.py` (direct) and gunicorn worker startup."""
     init_db()
-    # Normalize next_billing_date to strip time component from existing records
-    _db = sqlite3.connect(DATABASE)
-    _db.execute("""
-        UPDATE members
-        SET next_billing_date = SUBSTR(next_billing_date, 1, 10)
-        WHERE next_billing_date LIKE '____-__-__ %'
-    """)
-    _db.commit()
+    _db = _raw_db()
+    if not _USE_PG:
+        _db.execute("""
+            UPDATE members
+            SET next_billing_date = SUBSTR(next_billing_date, 1, 10)
+            WHERE next_billing_date LIKE '____-__-__ %'
+        """)
+        _db.commit()
     count = _db.execute("SELECT COUNT(*) FROM members").fetchone()[0]
     _db.close()
     if count == 0:
