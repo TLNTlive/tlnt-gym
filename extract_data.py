@@ -1,7 +1,7 @@
 import pandas as pd
 import json
 
-xls = pd.ExcelFile('TLNT_Gymdesk_Final_Package_v3 (1).xlsx')
+xls = pd.ExcelFile('TLNT_Eli_Export_v2.xlsx')
 
 all_data = {}
 

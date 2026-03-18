@@ -656,7 +656,7 @@ def seed_from_json():
     db.execute("PRAGMA foreign_keys=ON")
     now = datetime.now().isoformat()
 
-    rows = all_data.get('Active Import', {}).get('rows', [])
+    rows = all_data.get('Sheet1', all_data.get('Active Import', {})).get('rows', [])
 
     for row in rows:
         price_val = 0
