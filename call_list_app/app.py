@@ -69,9 +69,11 @@ class _Cur:
 
 def _pg_sql(sql):
     """Translate SQLite SQL syntax to PostgreSQL."""
-    sql = sql.replace('?', '%s')
     sql = _re.sub(r'INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT', 'SERIAL PRIMARY KEY', sql, flags=_re.IGNORECASE)
     sql = _re.sub(r'last_insert_rowid\(\)', 'lastval()', sql, flags=_re.IGNORECASE)
+    # Escape literal % (modulo) before replacing ? with %s so psycopg2 doesn't misread them
+    sql = _re.sub(r'%(?!\s*s\b)', '%%', sql)
+    sql = sql.replace('?', '%s')
     return sql
 
 
@@ -334,17 +336,29 @@ def queue():
 
     today_day = date.today().day
     tomorrow_day = (date.today() + timedelta(days=1)).day
-    query += f""" ORDER BY
-        CASE WHEN m.workflow_status = 'Critical Action' THEN 0 ELSE 1 END,
-        CASE WHEN m.escalated = 1 AND m.escalation_tag = 'Mike' THEN 0
-             WHEN m.escalated = 1 THEN 1 ELSE 2 END,
+    if _USE_PG:
+        billing_sort = f"""
+        CASE
+            WHEN m.next_billing_date IS NOT NULL AND m.next_billing_date != ''
+            THEN (EXTRACT(DAY FROM m.next_billing_date::date)::int - {tomorrow_day} + 32) % 32
+            WHEN m.next_due_date IS NOT NULL AND m.next_due_date != ''
+            THEN (EXTRACT(DAY FROM m.next_due_date::date)::int - {tomorrow_day} + 32) % 32
+            ELSE 99
+        END"""
+    else:
+        billing_sort = f"""
         CASE
             WHEN m.next_billing_date != '' AND LENGTH(m.next_billing_date) >= 10
             THEN (CAST(SUBSTR(m.next_billing_date, 9, 2) AS INTEGER) - {tomorrow_day} + 32) % 32
             WHEN m.next_due_date != '' AND LENGTH(m.next_due_date) >= 10
             THEN (CAST(SUBSTR(m.next_due_date, 9, 2) AS INTEGER) - {tomorrow_day} + 32) % 32
             ELSE 99
-        END ASC,
+        END"""
+    query += f""" ORDER BY
+        CASE WHEN m.workflow_status = 'Critical Action' THEN 0 ELSE 1 END,
+        CASE WHEN m.escalated = 1 AND m.escalation_tag = 'Mike' THEN 0
+             WHEN m.escalated = 1 THEN 1 ELSE 2 END,
+        {billing_sort} ASC,
         m.price DESC,
         m.last_contact_date ASC,
         m.family_group_id,
