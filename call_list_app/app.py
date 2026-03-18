@@ -677,6 +677,37 @@ def seed_from_json():
         if ndd and ' ' in ndd:
             ndd = ndd.split(' ')[0]
 
+        # If no next_billing_date, derive from Last Billed Date (same day, next upcoming month)
+        if not nbd:
+            lbd = row.get('Last Billed Date', '') or ''
+            if lbd and len(lbd) >= 10:
+                try:
+                    from datetime import date as _date
+                    lbd_date = _date.fromisoformat(lbd[:10])
+                    today = _date.today()
+                    # Use same day of month; if that day this month is still upcoming use this month, else next month
+                    import calendar
+                    billing_day = lbd_date.day
+                    try:
+                        candidate = today.replace(day=billing_day)
+                    except ValueError:
+                        last_day = calendar.monthrange(today.year, today.month)[1]
+                        candidate = today.replace(day=last_day)
+                    if candidate <= today:
+                        # Advance to next month
+                        if today.month == 12:
+                            next_month = today.replace(year=today.year + 1, month=1, day=1)
+                        else:
+                            next_month = today.replace(month=today.month + 1, day=1)
+                        try:
+                            candidate = next_month.replace(day=billing_day)
+                        except ValueError:
+                            last_day = calendar.monthrange(next_month.year, next_month.month)[1]
+                            candidate = next_month.replace(day=last_day)
+                    nbd = candidate.isoformat()
+                except Exception:
+                    pass
+
         db.execute("""INSERT INTO members (
             member_number, agreement_number, member_name, first_name, last_name,
             address, city, state, zip, best_phone, email_address, date_of_birth, gender,
