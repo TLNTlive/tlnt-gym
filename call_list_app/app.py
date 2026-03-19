@@ -3,9 +3,17 @@ import json
 import os
 import re as _re
 from datetime import datetime, date, timedelta
+from zoneinfo import ZoneInfo
 from functools import wraps
 from flask import (Flask, render_template, request, redirect, url_for,
                    flash, session, jsonify, g)
+
+_TZ = ZoneInfo('America/Chicago')
+
+def _today():
+    """Current date in US Central time."""
+    return datetime.now(_TZ).date()
+
 
 app = Flask(__name__)
 app.secret_key = 'tlnt-gym-transition-2026'
@@ -295,9 +303,9 @@ def dashboard():
     counts['Not Interested Total'] = db.execute("SELECT COUNT(*) FROM members WHERE gymdesk_outcome='Not Interested' AND workflow_status != 'Completed'").fetchone()[0]
     counts['Do Not Migrate Total'] = db.execute("SELECT COUNT(*) FROM members WHERE gymdesk_outcome='Do Not Migrate' AND workflow_status != 'Completed'").fetchone()[0]
 
-    today = date.today().isoformat()
-    d7 = (date.today() + timedelta(days=7)).isoformat()
-    d30 = (date.today() + timedelta(days=30)).isoformat()
+    today = _today().isoformat()
+    d7 = (_today() + timedelta(days=7)).isoformat()
+    d30 = (_today() + timedelta(days=30)).isoformat()
     counts['Due Next 7 Days'] = db.execute("SELECT COUNT(*) FROM members WHERE next_billing_date != '' AND next_billing_date <= ? AND workflow_status NOT IN ('Completed')", (d7,)).fetchone()[0]
     counts['Due Next 30 Days'] = db.execute("SELECT COUNT(*) FROM members WHERE next_billing_date != '' AND next_billing_date <= ? AND workflow_status NOT IN ('Completed')", (d30,)).fetchone()[0]
     counts['Completed Today'] = db.execute("SELECT COUNT(*) FROM members WHERE workflow_status='Completed' AND updated_at LIKE ?", (today + '%',)).fetchone()[0]
@@ -334,8 +342,8 @@ def queue():
         query += " AND (m.member_name LIKE ? OR m.best_phone LIKE ? OR m.email_address LIKE ?)"
         params.extend([f'%{search}%'] * 3)
 
-    today_day = date.today().day
-    tomorrow_day = (date.today() + timedelta(days=1)).day
+    today_day = _today().day
+    tomorrow_day = (_today() + timedelta(days=1)).day
     if _USE_PG:
         billing_sort = f"""
         CASE
@@ -366,8 +374,8 @@ def queue():
     """
 
     members = db.execute(query, params).fetchall()
-    today = date.today().isoformat()
-    today_day = date.today().day
+    today = _today().isoformat()
+    today_day = _today().day
     return render_template('queue.html', members=members, user=current_user(),
                            status_filter=status_filter, search=search,
                            priority_filter=priority_filter,
