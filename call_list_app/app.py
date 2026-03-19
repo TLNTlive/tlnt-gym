@@ -39,7 +39,7 @@ WORKFLOW_STATUSES = [
 ]
 
 GYMDESK_STATUSES = ['Pending', 'Active', 'Inactive', 'Already Active in Gymdesk']
-ABC_STATUSES = ['Active', 'Off', 'To Do', 'Removed from ABC']
+ABC_STATUSES = ['Active', 'Off', 'To Do']
 ESCALATION_TAGS = ['Alan', 'Coach', 'Mike', 'Other']
 CONTACT_TYPES = ['Call', 'Text', 'Email', 'In Person']
 GYMDESK_OUTCOMES = ['Pending', 'Active', 'Inactive', 'Already Active in Gymdesk', 'Not Interested', 'Do Not Migrate']
@@ -310,13 +310,7 @@ def dashboard():
     counts['Due Next 30 Days'] = db.execute("SELECT COUNT(*) FROM members WHERE next_billing_date != '' AND next_billing_date <= ? AND workflow_status NOT IN ('Completed')", (d30,)).fetchone()[0]
     counts['Completed Today'] = db.execute("SELECT COUNT(*) FROM members WHERE workflow_status='Completed' AND updated_at LIKE ?", (today + '%',)).fetchone()[0]
     counts['Critical Actions Outstanding'] = counts.get('Critical Action', 0)
-    counts['Removed from ABC'] = db.execute("SELECT COUNT(*) FROM members WHERE abc_status='Removed from ABC'").fetchone()[0]
-
-    removed_from_abc = db.execute(
-        "SELECT id, member_name, best_phone, membership_type, price, workflow_status, next_billing_date, next_due_date FROM members WHERE abc_status='Removed from ABC' ORDER BY member_name"
-    ).fetchall()
-
-    return render_template('dashboard.html', counts=counts, user=current_user(), removed_from_abc=removed_from_abc)
+    return render_template('dashboard.html', counts=counts, user=current_user())
 
 
 # --------------- Routes: Queue ---------------
