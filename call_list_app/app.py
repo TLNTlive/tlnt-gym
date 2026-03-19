@@ -39,7 +39,7 @@ WORKFLOW_STATUSES = [
 ]
 
 GYMDESK_STATUSES = ['Pending', 'Active', 'Inactive', 'Already Active in Gymdesk']
-ABC_STATUSES = ['Active', 'Off', 'To Do']
+ABC_STATUSES = ['Active', 'Off', 'To Do', 'Removed from ABC']
 ESCALATION_TAGS = ['Alan', 'Coach', 'Mike', 'Other']
 CONTACT_TYPES = ['Call', 'Text', 'Email', 'In Person']
 GYMDESK_OUTCOMES = ['Pending', 'Active', 'Inactive', 'Already Active in Gymdesk', 'Not Interested', 'Do Not Migrate']
